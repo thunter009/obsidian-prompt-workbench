@@ -1,8 +1,9 @@
-/* Prompt Workbench — placeholder theme overrides for Obsidian
- * The base CM6 theme handles most styling.
- * These use Obsidian CSS variables for theme compatibility. */
+/* Prompt Workbench — Obsidian theme overrides
+ * Base CM6 theme is in cm-extension.ts (EditorView.baseTheme).
+ * These handle Reading view + Obsidian CSS variable integration. */
 
-/* Error tooltip — theme-aware colors */
+/* ─── Tooltips (theme-aware) ───────────────────────────────────── */
+
 .cm-placeholder-error-tooltip {
   background-color: var(--background-primary);
   border: 1px solid var(--text-error);
@@ -10,10 +11,71 @@
   font-family: var(--font-monospace);
 }
 
-/* Placeholder hover tooltip */
 .cm-placeholder-tooltip {
   background-color: var(--background-primary);
   border: 1px solid var(--background-modifier-border);
   color: var(--text-normal);
   font-family: var(--font-monospace);
+}
+
+/* ─── Ghost text dark mode fix ─────────────────────────────────── */
+
+.theme-dark .cm-placeholder-preview {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ─── Reading view placeholder highlighting ────────────────────── */
+
+.pw-reading-placeholder {
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 500;
+  font-family: var(--font-monospace);
+  font-size: 0.9em;
+}
+
+.pw-reading-clipboard {
+  background-color: rgba(124, 58, 237, 0.15);
+  color: rgb(124, 58, 237);
+}
+
+.pw-reading-argument {
+  background-color: rgba(217, 119, 6, 0.15);
+  color: rgb(217, 119, 6);
+}
+
+.pw-reading-snippet {
+  background-color: rgba(13, 148, 136, 0.15);
+  color: rgb(13, 148, 136);
+}
+
+.pw-reading-date {
+  background-color: rgba(37, 99, 235, 0.15);
+  color: rgb(37, 99, 235);
+}
+
+.pw-reading-cursor {
+  background-color: rgba(225, 29, 72, 0.15);
+  color: rgb(225, 29, 72);
+}
+
+/* Dark mode adjustments for reading view */
+.theme-dark .pw-reading-clipboard {
+  color: rgb(167, 139, 250);
+}
+
+.theme-dark .pw-reading-argument {
+  color: rgb(251, 191, 36);
+}
+
+.theme-dark .pw-reading-snippet {
+  color: rgb(94, 234, 212);
+}
+
+.theme-dark .pw-reading-date {
+  color: rgb(96, 165, 250);
+}
+
+.theme-dark .pw-reading-cursor {
+  color: rgb(251, 113, 133);
 }

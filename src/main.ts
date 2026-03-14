@@ -1,5 +1,6 @@
 import { Plugin } from 'obsidian'
 import { placeholderExtension, togglePreviewEffect, previewEnabledField } from './placeholders/cm-extension'
+import { placeholderPostProcessor } from './placeholders/reading-view'
 import { PromptWorkbenchSettingTab, DEFAULT_SETTINGS, type PromptWorkbenchSettings } from './settings'
 
 export default class PromptWorkbenchPlugin extends Plugin {
@@ -8,8 +9,11 @@ export default class PromptWorkbenchPlugin extends Plugin {
   async onload() {
     await this.loadSettings()
 
-    // Register CM6 placeholder highlighting + previews + error decorations
+    // Register CM6 placeholder highlighting + previews + error decorations (Live Preview / Source)
     this.registerEditorExtension(placeholderExtension)
+
+    // Register post-processor for placeholder highlighting in Reading view
+    this.registerMarkdownPostProcessor(placeholderPostProcessor)
 
     // Commands
     this.addCommand({

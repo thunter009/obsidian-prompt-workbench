@@ -352,10 +352,14 @@ const placeholderTheme = EditorView.baseTheme({
     filter: 'brightness(1.1)',
   },
   '.cm-placeholder-preview': {
-    opacity: '0.4',
+    opacity: '0.5',
     fontStyle: 'italic',
     pointerEvents: 'none',
     userSelect: 'none',
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    borderRadius: '2px',
+    padding: '0 3px',
+    marginLeft: '2px',
   },
   '.cm-placeholder-error': {
     backgroundImage:
