@@ -1,6 +1,7 @@
 import { Plugin } from 'obsidian'
 import { placeholderExtension, togglePreviewEffect, previewEnabledField } from './placeholders/cm-extension'
 import { placeholderPostProcessor } from './placeholders/reading-view'
+import { exportToRaycast } from './raycast/export'
 import { PromptWorkbenchSettingTab, DEFAULT_SETTINGS, type PromptWorkbenchSettings } from './settings'
 
 export default class PromptWorkbenchPlugin extends Plugin {
@@ -24,6 +25,12 @@ export default class PromptWorkbenchPlugin extends Plugin {
         this.saveSettings()
         this.updatePreviewState(this.settings.showInlinePreviews)
       },
+    })
+
+    this.addCommand({
+      id: 'export-raycast',
+      name: 'Export to Raycast snippets',
+      callback: () => exportToRaycast(this),
     })
 
     // Settings tab
