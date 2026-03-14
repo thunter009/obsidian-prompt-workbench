@@ -2,6 +2,7 @@ import { Plugin } from 'obsidian'
 import { placeholderExtension, togglePreviewEffect, previewEnabledField } from './placeholders/cm-extension'
 import { placeholderPostProcessor } from './placeholders/reading-view'
 import { exportToRaycast } from './raycast/export'
+import { StrategyPickerModal } from './improve/modal'
 import { PromptWorkbenchSettingTab, DEFAULT_SETTINGS, type PromptWorkbenchSettings } from './settings'
 
 export default class PromptWorkbenchPlugin extends Plugin {
@@ -10,10 +11,10 @@ export default class PromptWorkbenchPlugin extends Plugin {
   async onload() {
     await this.loadSettings()
 
-    // Register CM6 placeholder highlighting + previews + error decorations (Live Preview / Source)
+    // CM6 placeholder highlighting (Live Preview / Source)
     this.registerEditorExtension(placeholderExtension)
 
-    // Register post-processor for placeholder highlighting in Reading view
+    // Reading view placeholder highlighting
     this.registerMarkdownPostProcessor(placeholderPostProcessor)
 
     // Commands
@@ -33,10 +34,18 @@ export default class PromptWorkbenchPlugin extends Plugin {
       callback: () => exportToRaycast(this),
     })
 
+    this.addCommand({
+      id: 'improve-prompt',
+      name: 'Improve prompt',
+      editorCallback: (editor) => {
+        new StrategyPickerModal(this.app, this, editor).open()
+      },
+    })
+
     // Settings tab
     this.addSettingTab(new PromptWorkbenchSettingTab(this.app, this))
 
-    // Apply initial preview state after a short delay (editor needs to be ready)
+    // Apply initial preview state
     this.app.workspace.onLayoutReady(() => {
       this.updatePreviewState(this.settings.showInlinePreviews)
     })
@@ -51,7 +60,6 @@ export default class PromptWorkbenchPlugin extends Plugin {
   }
 
   updatePreviewState(enabled: boolean) {
-    // Dispatch toggle effect to all open editors
     this.app.workspace.iterateAllLeaves((leaf) => {
       // @ts-expect-error — accessing internal CM6 editor
       const editor = leaf.view?.editor
@@ -61,11 +69,10 @@ export default class PromptWorkbenchPlugin extends Plugin {
       if (!cmView) return
 
       try {
-        // Only dispatch if the field is registered
         cmView.state.field(previewEnabledField)
         cmView.dispatch({ effects: togglePreviewEffect.of(enabled) })
       } catch {
-        // Field not registered in this editor — skip
+        // Field not registered in this editor
       }
     })
   }

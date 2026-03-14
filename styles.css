@@ -79,3 +79,127 @@
 .theme-dark .pw-reading-cursor {
   color: rgb(251, 113, 133);
 }
+
+/* ─── Improve Prompt Modal ─────────────────────────────────────── */
+
+.pw-improve-modal {
+  width: 700px;
+  max-width: 90vw;
+  max-height: 80vh;
+}
+
+.pw-improve-modal .modal-content {
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+}
+
+/* Streaming output */
+.pw-stream-container {
+  flex: 1;
+  overflow: auto;
+  max-height: 50vh;
+}
+
+.pw-stream-output {
+  padding: 12px;
+  font-family: var(--font-monospace);
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--background-secondary);
+  border-radius: 6px;
+  margin: 8px 0;
+  min-height: 100px;
+}
+
+/* Diff container */
+.pw-diff-container {
+  flex: 1;
+  overflow: auto;
+  max-height: 50vh;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  margin: 8px 0;
+}
+
+.pw-diff-container .cm-editor {
+  font-size: 13px;
+}
+
+.pw-diff-container .cm-mergeView .cm-changedLine {
+  background-color: rgba(37, 99, 235, 0.08);
+}
+
+.pw-diff-container .cm-deletedChunk {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Placeholder warning */
+.pw-placeholder-warning {
+  padding: 8px 12px;
+  background: rgba(217, 119, 6, 0.15);
+  border: 1px solid rgba(217, 119, 6, 0.3);
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-normal);
+  margin-bottom: 8px;
+}
+
+/* Version navigation */
+.pw-version-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.pw-version-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Controls */
+.pw-controls {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pw-iterate {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pw-iterate .pw-input {
+  flex: 1;
+}
+
+.pw-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Shared input styling */
+.pw-input {
+  padding: 6px 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 13px;
+}
+
+.pw-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-normal);
+}
+
+.pw-custom-go {
+  padding: 6px 16px;
+}
