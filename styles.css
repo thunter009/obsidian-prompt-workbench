@@ -1,0 +1,19 @@
+/* Prompt Workbench — placeholder theme overrides for Obsidian
+ * The base CM6 theme handles most styling.
+ * These use Obsidian CSS variables for theme compatibility. */
+
+/* Error tooltip — theme-aware colors */
+.cm-placeholder-error-tooltip {
+  background-color: var(--background-primary);
+  border: 1px solid var(--text-error);
+  color: var(--text-error);
+  font-family: var(--font-monospace);
+}
+
+/* Placeholder hover tooltip */
+.cm-placeholder-tooltip {
+  background-color: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  font-family: var(--font-monospace);
+}

@@ -1,0 +1,9 @@
+{
+  "id": "prompt-workbench",
+  "name": "Prompt Workbench",
+  "version": "0.1.0",
+  "minAppVersion": "1.5.0",
+  "description": "Prompt template editor with Raycast placeholder highlighting, AI improvement, and snippet export.",
+  "author": "thom",
+  "isDesktopOnly": false
+}
