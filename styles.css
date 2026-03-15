@@ -203,3 +203,137 @@
 .pw-custom-go {
   padding: 6px 16px;
 }
+
+/* ─── Playground Sidebar ───────────────────────────────────────── */
+
+.pw-playground {
+  padding: 12px;
+}
+
+.pw-playground-header h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.pw-playground-inputs {
+  margin-bottom: 16px;
+}
+
+.pw-playground-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-style: italic;
+}
+
+.pw-field-row {
+  margin-bottom: 10px;
+}
+
+.pw-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+
+.pw-field-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-right: 4px;
+}
+
+.pw-badge-argument {
+  background: rgba(217, 119, 6, 0.15);
+  color: rgb(217, 119, 6);
+}
+
+.pw-badge-clipboard {
+  background: rgba(124, 58, 237, 0.15);
+  color: rgb(124, 58, 237);
+}
+
+.pw-badge-snippet {
+  background: rgba(13, 148, 136, 0.15);
+  color: rgb(13, 148, 136);
+}
+
+.pw-badge-date,
+.pw-badge-time,
+.pw-badge-datetime,
+.pw-badge-day {
+  background: rgba(37, 99, 235, 0.15);
+  color: rgb(37, 99, 235);
+}
+
+.pw-badge-cursor,
+.pw-badge-uuid,
+.pw-badge-selection {
+  background: rgba(225, 29, 72, 0.15);
+  color: rgb(225, 29, 72);
+}
+
+.pw-field-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  background: var(--background-primary);
+  color: var(--text-normal);
+  font-size: 13px;
+  font-family: var(--font-monospace);
+}
+
+.pw-field-input:focus {
+  border-color: var(--interactive-accent);
+  outline: none;
+}
+
+/* Preview */
+.pw-playground-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.pw-playground-preview-header h5 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pw-copy-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.pw-copy-btn:hover {
+  color: var(--text-normal);
+  background: var(--background-modifier-hover);
+}
+
+.pw-playground-preview {
+  padding: 12px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  max-height: 50vh;
+  overflow: auto;
+}

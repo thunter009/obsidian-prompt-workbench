@@ -20,7 +20,7 @@ export const DEFAULT_SETTINGS: PromptWorkbenchSettings = {
   showInlinePreviews: false,
   raycastExportPath: '~/.prompt-workbench/raycast-snippets.json',
   llmProvider: 'ollama',
-  llmModel: 'llama3.2',
+  llmModel: 'qwen2.5:14b',
   ollamaUrl: 'http://localhost:11434',
   openaiBaseUrl: 'https://api.openai.com/v1',
   openaiApiKey: '',

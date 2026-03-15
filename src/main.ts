@@ -3,6 +3,7 @@ import { placeholderExtension, togglePreviewEffect, previewEnabledField } from '
 import { placeholderPostProcessor } from './placeholders/reading-view'
 import { exportToRaycast } from './raycast/export'
 import { StrategyPickerModal } from './improve/modal'
+import { PlaygroundView, PLAYGROUND_VIEW_TYPE } from './playground/view'
 import { PromptWorkbenchSettingTab, DEFAULT_SETTINGS, type PromptWorkbenchSettings } from './settings'
 
 export default class PromptWorkbenchPlugin extends Plugin {
@@ -16,6 +17,9 @@ export default class PromptWorkbenchPlugin extends Plugin {
 
     // Reading view placeholder highlighting
     this.registerMarkdownPostProcessor(placeholderPostProcessor)
+
+    // Playground sidebar view
+    this.registerView(PLAYGROUND_VIEW_TYPE, (leaf) => new PlaygroundView(leaf, this))
 
     // Commands
     this.addCommand({
@@ -42,6 +46,12 @@ export default class PromptWorkbenchPlugin extends Plugin {
       },
     })
 
+    this.addCommand({
+      id: 'open-playground',
+      name: 'Open playground',
+      callback: () => this.activatePlayground(),
+    })
+
     // Settings tab
     this.addSettingTab(new PromptWorkbenchSettingTab(this.app, this))
 
@@ -49,6 +59,20 @@ export default class PromptWorkbenchPlugin extends Plugin {
     this.app.workspace.onLayoutReady(() => {
       this.updatePreviewState(this.settings.showInlinePreviews)
     })
+  }
+
+  async activatePlayground() {
+    const existing = this.app.workspace.getLeavesOfType(PLAYGROUND_VIEW_TYPE)
+    if (existing.length > 0) {
+      this.app.workspace.revealLeaf(existing[0])
+      return
+    }
+
+    const leaf = this.app.workspace.getRightLeaf(false)
+    if (leaf) {
+      await leaf.setViewState({ type: PLAYGROUND_VIEW_TYPE, active: true })
+      this.app.workspace.revealLeaf(leaf)
+    }
   }
 
   async loadSettings() {
