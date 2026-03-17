@@ -1,0 +1,57 @@
+{
+  "nodes": [
+    {
+      "id": "persona-node",
+      "type": "file",
+      "file": "_templates/persona.md",
+      "x": 80,
+      "y": 200,
+      "width": 320,
+      "height": 220
+    },
+    {
+      "id": "analysis-node",
+      "type": "file",
+      "file": "_templates/analysis-prompt.md",
+      "x": 520,
+      "y": 200,
+      "width": 320,
+      "height": 220
+    },
+    {
+      "id": "output-node",
+      "type": "file",
+      "file": "_templates/output-format.md",
+      "x": 960,
+      "y": 200,
+      "width": 320,
+      "height": 220
+    },
+    {
+      "id": "notes-node",
+      "type": "text",
+      "text": "Prompt chain flow:\n1. Persona [[persona]]\n2. Analysis [[analysis-prompt]]\n3. Output format [[output-format]]",
+      "x": 520,
+      "y": 480,
+      "width": 420,
+      "height": 180,
+      "color": "2"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-persona-analysis",
+      "fromNode": "persona-node",
+      "fromSide": "right",
+      "toNode": "analysis-node",
+      "toSide": "left"
+    },
+    {
+      "id": "edge-analysis-output",
+      "fromNode": "analysis-node",
+      "fromSide": "right",
+      "toNode": "output-node",
+      "toSide": "left"
+    }
+  ]
+}
