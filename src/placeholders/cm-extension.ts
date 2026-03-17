@@ -20,6 +20,7 @@ import {
   type Tooltip,
 } from '@codemirror/view'
 import { StateField, StateEffect, RangeSetBuilder } from '@codemirror/state'
+import { type App, TFile } from 'obsidian'
 import {
   PLACEHOLDER_REGEX,
   parsePlaceholder,
@@ -266,8 +267,48 @@ const errorHoverTooltip = hoverTooltip(
 
 // ─── Placeholder type hover tooltip ───────────────────────────────
 
-const placeholderHoverTooltip = hoverTooltip(
-  (view: EditorView, pos: number): Tooltip | null => {
+function resolveSnippetFile(app: App, snippetRef: string): TFile | null {
+  const direct = app.vault.getAbstractFileByPath(`${snippetRef}.md`)
+  if (direct instanceof TFile) return direct
+
+  const byBasename = app.vault.getMarkdownFiles().find((file) => file.basename === snippetRef)
+  return byBasename ?? null
+}
+
+function buildSnippetTooltip(app: App, snippetRef: string): HTMLElement {
+  const dom = document.createElement('div')
+  dom.className = 'cm-placeholder-tooltip'
+
+  const file = resolveSnippetFile(app, snippetRef)
+  if (!file) {
+    dom.textContent = `Snippet not found: ${snippetRef}`
+    return dom
+  }
+
+  const label = document.createElement('div')
+  label.className = 'cm-placeholder-tooltip-type'
+  label.textContent = file.path
+  dom.appendChild(label)
+
+  const body = document.createElement('div')
+  body.className = 'cm-placeholder-tooltip-detail'
+  body.textContent = 'Loading snippet...'
+  dom.appendChild(body)
+
+  void app.vault.cachedRead(file)
+    .then((content) => {
+      const trimmed = content.trim()
+      body.textContent = trimmed.length > 0 ? trimmed.slice(0, 500) : '(empty snippet file)'
+    })
+    .catch(() => {
+      body.textContent = 'Unable to read snippet file'
+    })
+
+  return dom
+}
+
+function createPlaceholderHoverTooltip(app: App) {
+  return hoverTooltip((view: EditorView, pos: number): Tooltip | null => {
     const line = view.state.doc.lineAt(pos)
     const re = new RegExp(PLACEHOLDER_REGEX.source, 'g')
     let m: RegExpExecArray | null
@@ -310,15 +351,51 @@ const placeholderHoverTooltip = hoverTooltip(
               dom.appendChild(modSpan)
             }
 
+            if (parsed.type === 'snippet' && parsed.snippetRef) {
+              dom.appendChild(buildSnippetTooltip(app, parsed.snippetRef))
+            }
+
             return { dom }
           },
         }
       }
     }
     return null
-  },
-  { hoverTime: 300 },
-)
+  }, { hoverTime: 300 })
+}
+
+function createSnippetClickPlugin(app: App) {
+  return EditorView.domEventHandlers({
+    mousedown(event, view) {
+      if (!(event.metaKey || event.ctrlKey)) return false
+
+      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
+      if (pos == null) return false
+
+      const line = view.state.doc.lineAt(pos)
+      const re = new RegExp(PLACEHOLDER_REGEX.source, 'g')
+      let m: RegExpExecArray | null
+
+      while ((m = re.exec(line.text)) !== null) {
+        const from = line.from + m.index
+        const to = from + m[0].length
+        if (pos < from || pos > to) continue
+
+        const parsed = parsePlaceholder(m[0])
+        if (!parsed?.snippetRef) return false
+
+        const file = resolveSnippetFile(app, parsed.snippetRef)
+        if (!file) return false
+
+        event.preventDefault()
+        void app.workspace.getLeaf('tab').openFile(file)
+        return true
+      }
+
+      return false
+    },
+  })
+}
 
 // ─── Theme ────────────────────────────────────────────────────────
 
@@ -392,12 +469,15 @@ const placeholderTheme = EditorView.baseTheme({
 
 // ─── Combined extension ───────────────────────────────────────────
 
-export const placeholderExtension = [
-  raycastPlaceholderPlugin,
-  previewEnabledField,
-  previewWidgetPlugin,
-  errorDecorationPlugin,
-  errorHoverTooltip,
-  placeholderHoverTooltip,
-  placeholderTheme,
-]
+export function createPlaceholderExtension(app: App) {
+  return [
+    raycastPlaceholderPlugin,
+    previewEnabledField,
+    previewWidgetPlugin,
+    errorDecorationPlugin,
+    errorHoverTooltip,
+    createPlaceholderHoverTooltip(app),
+    createSnippetClickPlugin(app),
+    placeholderTheme,
+  ]
+}

@@ -4,6 +4,7 @@
  * This highlights placeholders in Reading view too.
  */
 
+import { type App, type MarkdownPostProcessorContext, TFile } from 'obsidian'
 import { PLACEHOLDER_REGEX } from './parser'
 
 const TYPE_CLASSES: Record<string, string> = {
@@ -19,10 +20,44 @@ const TYPE_CLASSES: Record<string, string> = {
   selection: 'pw-reading-placeholder pw-reading-cursor',
 }
 
-export function placeholderPostProcessor(el: HTMLElement) {
+function resolveSnippetFile(app: App, snippetRef: string): TFile | null {
+  const direct = app.vault.getAbstractFileByPath(`${snippetRef}.md`)
+  if (direct instanceof TFile) return direct
+
+  const byBasename = app.vault.getMarkdownFiles().find((file) => file.basename === snippetRef)
+  return byBasename ?? null
+}
+
+function appendHiddenSnippetLinks(el: HTMLElement, app: App, snippetRefs: Set<string>) {
+  if (snippetRefs.size === 0) return
+
+  const hidden = document.createElement('div')
+  hidden.style.display = 'none'
+  hidden.setAttribute('aria-hidden', 'true')
+
+  for (const ref of snippetRefs) {
+    const file = resolveSnippetFile(app, ref)
+    if (!file) continue
+
+    const link = document.createElement('a')
+    link.className = 'internal-link'
+    link.setAttribute('data-href', file.path)
+    link.setAttribute('href', file.path)
+    link.textContent = file.basename
+    hidden.appendChild(link)
+  }
+
+  if (hidden.childElementCount > 0) {
+    el.appendChild(hidden)
+  }
+}
+
+export function createPlaceholderPostProcessor(app: App) {
+  return (el: HTMLElement, _ctx: MarkdownPostProcessorContext) => {
   // Walk all text nodes in the rendered element
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
   const nodesToReplace: { node: Text; matches: { type: string; raw: string; index: number }[] }[] = []
+  const snippetRefs = new Set<string>()
 
   let textNode: Text | null
   while ((textNode = walker.nextNode() as Text | null)) {
@@ -52,6 +87,28 @@ export function placeholderPostProcessor(el: HTMLElement) {
       const span = document.createElement('span')
       span.className = TYPE_CLASSES[match.type] || 'pw-reading-placeholder'
       span.textContent = match.raw
+      if (match.type === 'snippet') {
+        const snippetMatch = match.raw.match(/\bname="([^"]+)"/)
+        const snippetRef = snippetMatch?.[1]
+
+        if (snippetRef) {
+          snippetRefs.add(snippetRef)
+          span.dataset.snippetRef = snippetRef
+
+          const file = resolveSnippetFile(app, snippetRef)
+          if (!file) {
+            span.title = `Snippet not found: ${snippetRef}`
+          } else {
+            span.title = file.path
+            span.addEventListener('click', (event) => {
+              const mouseEvent = event as MouseEvent
+              if (!(mouseEvent.metaKey || mouseEvent.ctrlKey)) return
+              mouseEvent.preventDefault()
+              void app.workspace.getLeaf('tab').openFile(file)
+            })
+          }
+        }
+      }
       frag.appendChild(span)
       lastIndex = match.index + match.raw.length
     }
@@ -63,4 +120,7 @@ export function placeholderPostProcessor(el: HTMLElement) {
 
     node.parentNode?.replaceChild(frag, node)
   }
+
+  appendHiddenSnippetLinks(el, app, snippetRefs)
+}
 }

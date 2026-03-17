@@ -1,6 +1,7 @@
 import { Plugin } from 'obsidian'
-import { placeholderExtension, togglePreviewEffect, previewEnabledField } from './placeholders/cm-extension'
-import { placeholderPostProcessor } from './placeholders/reading-view'
+import { createPlaceholderExtension, togglePreviewEffect, previewEnabledField } from './placeholders/cm-extension'
+import { createPlaceholderPostProcessor } from './placeholders/reading-view'
+import { registerSnippetGraphLinks } from './placeholders/graph-links'
 import { exportToRaycast } from './raycast/export'
 import { StrategyPickerModal } from './improve/modal'
 import { PlaygroundView, PLAYGROUND_VIEW_TYPE } from './playground/view'
@@ -13,10 +14,13 @@ export default class PromptWorkbenchPlugin extends Plugin {
     await this.loadSettings()
 
     // CM6 placeholder highlighting (Live Preview / Source)
-    this.registerEditorExtension(placeholderExtension)
+    this.registerEditorExtension(createPlaceholderExtension(this.app))
 
     // Reading view placeholder highlighting
-    this.registerMarkdownPostProcessor(placeholderPostProcessor)
+    this.registerMarkdownPostProcessor(createPlaceholderPostProcessor(this.app))
+
+    // Snippet graph/backlinks integration (metadataCache.resolvedLinks)
+    registerSnippetGraphLinks(this)
 
     // Playground sidebar view
     this.registerView(PLAYGROUND_VIEW_TYPE, (leaf) => new PlaygroundView(leaf, this))
@@ -88,7 +92,6 @@ export default class PromptWorkbenchPlugin extends Plugin {
       // @ts-expect-error — accessing internal CM6 editor
       const editor = leaf.view?.editor
       if (!editor) return
-      // @ts-expect-error — accessing internal CM6 view
       const cmView = editor.cm
       if (!cmView) return
 
