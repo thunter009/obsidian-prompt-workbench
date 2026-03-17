@@ -5,6 +5,7 @@ import { registerSnippetGraphLinks } from './placeholders/graph-links'
 import { exportToRaycast } from './raycast/export'
 import { StrategyPickerModal } from './improve/modal'
 import { PlaygroundView, PLAYGROUND_VIEW_TYPE } from './playground/view'
+import { ReorgModal } from './reorg/modal'
 import { PromptWorkbenchSettingTab, DEFAULT_SETTINGS, type PromptWorkbenchSettings } from './settings'
 
 export default class PromptWorkbenchPlugin extends Plugin {
@@ -54,6 +55,14 @@ export default class PromptWorkbenchPlugin extends Plugin {
       id: 'open-playground',
       name: 'Open playground',
       callback: () => this.activatePlayground(),
+    })
+
+    this.addCommand({
+      id: 'reorganize-vault',
+      name: 'Prompt Workbench: Reorganize vault',
+      callback: () => {
+        new ReorgModal(this.app, this).open()
+      },
     })
 
     // Settings tab
