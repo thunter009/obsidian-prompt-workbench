@@ -3,3 +3,6 @@ main.js
 *.js.map
 data.json
 .ralph-tui/
+
+# bv (beads viewer) local config and caches
+.bv/
