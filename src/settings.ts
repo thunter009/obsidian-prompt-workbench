@@ -14,6 +14,8 @@ export interface PromptWorkbenchSettings {
   anthropicBaseUrl: string
   anthropicApiKey: string
   metaSystemPrompt: string
+  includeWorkflowHeader: boolean
+  autoSyncRaycast: boolean
 }
 
 export const DEFAULT_SETTINGS: PromptWorkbenchSettings = {
@@ -27,6 +29,8 @@ export const DEFAULT_SETTINGS: PromptWorkbenchSettings = {
   anthropicBaseUrl: 'https://api.anthropic.com/v1',
   anthropicApiKey: '',
   metaSystemPrompt: '',
+  includeWorkflowHeader: false,
+  autoSyncRaycast: false,
 }
 
 export class PromptWorkbenchSettingTab extends PluginSettingTab {
@@ -66,6 +70,26 @@ export class PromptWorkbenchSettingTab extends PluginSettingTab {
         .setValue(this.plugin.settings.raycastExportPath)
         .onChange(async (value) => {
           this.plugin.settings.raycastExportPath = value
+          await this.plugin.saveSettings()
+        }))
+
+    new Setting(containerEl)
+      .setName('Auto-sync on save')
+      .setDesc('Auto-export on vault save + auto-import new Raycast snippets. Vault is source of truth — edits made directly in Raycast are overwritten on next sync.')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.autoSyncRaycast)
+        .onChange(async (value) => {
+          this.plugin.settings.autoSyncRaycast = value
+          await this.plugin.saveSettings()
+        }))
+
+    new Setting(containerEl)
+      .setName('Include workflow header')
+      .setDesc('Prepend workflow context (phase, use-when, steps) to exported snippets')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.includeWorkflowHeader)
+        .onChange(async (value) => {
+          this.plugin.settings.includeWorkflowHeader = value
           await this.plugin.saveSettings()
         }))
 

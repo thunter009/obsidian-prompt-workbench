@@ -337,3 +337,154 @@
   max-height: 50vh;
   overflow: auto;
 }
+
+/* ── Workflow Info Panel ── */
+
+.pw-workflow-info:empty {
+  display: none;
+}
+
+.pw-workflow-info {
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.pw-phase-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-bottom: 4px;
+  color: var(--text-on-accent);
+}
+
+.pw-phase-intent { background: #7c3aed; }
+.pw-phase-planning { background: #2563eb; }
+.pw-phase-translation { background: #0891b2; }
+.pw-phase-execution { background: #059669; }
+.pw-phase-harden { background: #d97706; }
+
+.theme-dark .pw-phase-intent { background: #8b5cf6; }
+.theme-dark .pw-phase-planning { background: #3b82f6; }
+.theme-dark .pw-phase-translation { background: #06b6d4; }
+.theme-dark .pw-phase-execution { background: #10b981; }
+.theme-dark .pw-phase-harden { background: #f59e0b; }
+
+.pw-workflow-use-when {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.pw-workflow-steps {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  color: var(--text-muted);
+}
+
+.pw-workflow-steps li {
+  margin-bottom: 2px;
+}
+
+/* ── Duplicate Detection Modal ── */
+
+.pw-duplicate-modal {
+  width: 700px;
+  max-width: 90vw;
+}
+
+.pw-duplicate-modal .modal-content {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.pw-dup-status {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.pw-dup-group {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.pw-dup-group:last-child {
+  border-bottom: none;
+}
+
+.pw-dup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pw-dup-identical {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #059669;
+  color: var(--text-on-accent);
+}
+
+.pw-dup-different {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #d97706;
+  color: var(--text-on-accent);
+}
+
+.pw-dup-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.pw-dup-file-path {
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.pw-dup-file-meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.pw-dup-controls {
+  margin-top: 6px;
+}
+
+.pw-dup-diff-labels {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.pw-dup-vs {
+  font-size: 11px;
+  color: var(--text-faint);
+}

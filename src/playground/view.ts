@@ -1,6 +1,8 @@
 import { ItemView, WorkspaceLeaf, MarkdownRenderer } from 'obsidian'
 import type PromptWorkbenchPlugin from '../main'
 import { findPlaceholders, type ParsedPlaceholder } from '../placeholders/parser'
+import { parseFrontmatter } from '../frontmatter'
+import { extractWorkflowMetadata, type WorkflowMetadata } from '../workflow'
 
 export const PLAYGROUND_VIEW_TYPE = 'prompt-workbench-playground'
 
@@ -27,9 +29,11 @@ export class PlaygroundView extends ItemView {
   plugin: PromptWorkbenchPlugin
   private values: Map<string, string> = new Map()
   private fields: PlaceholderField[] = []
+  private workflowContainer: HTMLElement | null = null
   private inputContainer: HTMLElement | null = null
   private previewContainer: HTMLElement | null = null
   private activeFilePath: string | null = null
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(leaf: WorkspaceLeaf, plugin: PromptWorkbenchPlugin) {
     super(leaf)
@@ -57,6 +61,9 @@ export class PlaygroundView extends ItemView {
     const header = container.createDiv({ cls: 'pw-playground-header' })
     header.createEl('h4', { text: 'Playground' })
 
+    // Workflow info (populated on refresh)
+    this.workflowContainer = container.createDiv({ cls: 'pw-workflow-info' })
+
     // Input fields
     this.inputContainer = container.createDiv({ cls: 'pw-playground-inputs' })
 
@@ -68,14 +75,14 @@ export class PlaygroundView extends ItemView {
 
     this.previewContainer = container.createDiv({ cls: 'pw-playground-preview' })
 
-    // Listen for active file changes
+    // Listen for active file changes (immediate)
     this.registerEvent(
       this.app.workspace.on('active-leaf-change', () => this.refresh())
     )
 
-    // Listen for editor changes
+    // Listen for editor changes (debounced — fires on every keystroke)
     this.registerEvent(
-      this.app.workspace.on('editor-change', () => this.refresh())
+      this.app.workspace.on('editor-change', () => this.debouncedRefresh())
     )
 
     // Initial render
@@ -83,7 +90,16 @@ export class PlaygroundView extends ItemView {
   }
 
   async onClose() {
+    if (this.refreshTimer) clearTimeout(this.refreshTimer)
     this.contentEl.empty()
+  }
+
+  private debouncedRefresh() {
+    if (this.refreshTimer) clearTimeout(this.refreshTimer)
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null
+      this.refresh()
+    }, 300)
   }
 
   private async refresh() {
@@ -100,7 +116,10 @@ export class PlaygroundView extends ItemView {
     }
 
     const content = await this.app.vault.cachedRead(file)
-    const { frontmatter, body } = this.parseFrontmatter(content)
+    const { frontmatter, body } = parseFrontmatter(content)
+
+    // Render workflow info if present
+    this.renderWorkflowInfo(extractWorkflowMetadata(frontmatter))
 
     // Find placeholders in body only (not frontmatter)
     const matches = findPlaceholders(body)
@@ -142,6 +161,7 @@ export class PlaygroundView extends ItemView {
   }
 
   private renderEmpty(message: string) {
+    if (this.workflowContainer) this.workflowContainer.empty()
     if (this.inputContainer) {
       this.inputContainer.empty()
       this.inputContainer.createEl('p', { text: message, cls: 'pw-playground-empty' })
@@ -175,7 +195,7 @@ export class PlaygroundView extends ItemView {
         const file = this.app.workspace.getActiveFile()
         if (file) {
           this.app.vault.cachedRead(file).then(content => {
-            const { body } = this.parseFrontmatter(content)
+            const { body } = parseFrontmatter(content)
             this.renderPreview(body)
           })
         }
@@ -194,7 +214,7 @@ export class PlaygroundView extends ItemView {
       if (value) {
         // Escape regex special chars in the raw placeholder
         const escaped = field.raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        rendered = rendered.replace(new RegExp(escaped, 'g'), value)
+        rendered = rendered.replace(new RegExp(escaped, 'g'), () => value)
       }
     }
 
@@ -214,14 +234,14 @@ export class PlaygroundView extends ItemView {
     if (!file) return
 
     const content = await this.app.vault.cachedRead(file)
-    const { body } = this.parseFrontmatter(content)
+    const { body } = parseFrontmatter(content)
 
     let rendered = body
     for (const field of this.fields) {
       const value = this.values.get(field.key)
       if (value) {
         const escaped = field.raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-        rendered = rendered.replace(new RegExp(escaped, 'g'), value)
+        rendered = rendered.replace(new RegExp(escaped, 'g'), () => value)
       }
     }
 
@@ -230,58 +250,28 @@ export class PlaygroundView extends ItemView {
     new Notice('Copied to clipboard')
   }
 
-  private parseFrontmatter(content: string): { frontmatter: Record<string, unknown>; body: string } {
-    const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
-    if (!match) return { frontmatter: {}, body: content }
+  private renderWorkflowInfo(meta: WorkflowMetadata | null) {
+    if (!this.workflowContainer) return
+    this.workflowContainer.empty()
+    if (!meta) return
 
-    const frontmatter: Record<string, unknown> = {}
-    const lines = match[1].split('\n')
-    let currentKey: string | null = null
-    let currentObj: Record<string, string> | null = null
-
-    for (const line of lines) {
-      // Nested key-value (test-values)
-      if (currentKey && line.startsWith('  ')) {
-        const colonIdx = line.indexOf(':')
-        if (colonIdx !== -1 && currentObj) {
-          const k = line.slice(0, colonIdx).trim()
-          const v = line.slice(colonIdx + 1).trim()
-          currentObj[k] = v
-        }
-        continue
-      }
-
-      // Flush current nested object
-      if (currentKey && currentObj) {
-        frontmatter[currentKey] = currentObj
-        currentKey = null
-        currentObj = null
-      }
-
-      const colonIdx = line.indexOf(':')
-      if (colonIdx === -1) continue
-      const key = line.slice(0, colonIdx).trim()
-      let value: unknown = line.slice(colonIdx + 1).trim()
-
-      if (value === '') {
-        // Could be start of nested object
-        currentKey = key
-        currentObj = {}
-        continue
-      }
-
-      // Parse arrays
-      if (typeof value === 'string' && value.startsWith('[') && value.endsWith(']')) {
-        value = value.slice(1, -1).split(',').map(s => s.trim()).filter(Boolean)
-      }
-      frontmatter[key] = value
+    if (meta.phase) {
+      this.workflowContainer.createSpan({
+        text: meta.phase,
+        cls: `pw-phase-badge pw-phase-${meta.phase}`,
+      })
     }
-
-    // Flush final nested object
-    if (currentKey && currentObj) {
-      frontmatter[currentKey] = currentObj
+    if (meta.useWhen) {
+      this.workflowContainer.createEl('p', {
+        text: meta.useWhen,
+        cls: 'pw-workflow-use-when',
+      })
     }
-
-    return { frontmatter, body: match[2].trim() }
+    if (meta.workflowSteps && meta.workflowSteps.length > 0) {
+      const ol = this.workflowContainer.createEl('ol', { cls: 'pw-workflow-steps' })
+      for (const step of meta.workflowSteps) {
+        ol.createEl('li', { text: step })
+      }
+    }
   }
 }

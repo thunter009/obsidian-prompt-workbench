@@ -3,7 +3,7 @@ import { findPlaceholders } from './parser'
 
 type ResolvedLinksMap = Record<string, Record<string, number>>
 
-function resolveSnippetFile(app: App, snippetRef: string): TFile | null {
+export function resolveSnippetFile(app: App, snippetRef: string): TFile | null {
   const direct = app.vault.getAbstractFileByPath(`${snippetRef}.md`)
   if (direct instanceof TFile) return direct
 
