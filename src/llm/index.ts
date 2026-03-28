@@ -41,6 +41,9 @@ export function createLLMAdapter(config: LLMAdapterConfig): LLMAdapter {
     })
   }
 
+  if (config.provider !== 'anthropic') {
+    throw new Error(`Unknown LLM provider: ${config.provider}`)
+  }
   if (!config.anthropicApiKey) {
     throw new Error('Anthropic API key required')
   }
