@@ -69,6 +69,25 @@ export class ReorgModal extends Modal {
       .onClick(() => this.close())
   }
 
+  private renderStreaming(fileCount: number): { streamEl: HTMLElement; timerEl: HTMLElement } {
+    this.contentEl.empty()
+    this.modalEl.addClass('pw-reorg-modal-streaming')
+
+    const statusRow = this.contentEl.createDiv({ cls: 'pw-reorg-status' })
+    const timerEl = statusRow.createSpan({ cls: 'pw-reorg-timer', text: '0s' })
+    statusRow.createSpan({ text: `Analyzing ${fileCount} files...`, cls: 'pw-reorg-status-text' })
+
+    const streamEl = this.contentEl.createEl('pre', { cls: 'pw-stream-output' })
+    streamEl.textContent = ''
+
+    const controls = this.contentEl.createDiv({ cls: 'pw-controls' })
+    new ButtonComponent(controls)
+      .setButtonText('Cancel')
+      .onClick(() => this.close())
+
+    return { streamEl, timerEl }
+  }
+
   private async loadMoves() {
     const files = await this.collectFiles()
     if (files.length === 0) {
@@ -76,8 +95,15 @@ export class ReorgModal extends Modal {
       return
     }
 
-    this.renderLoading(`Sending ${files.length} files to LLM...`)
+    const { streamEl, timerEl } = this.renderStreaming(files.length)
     this.abortController = new AbortController()
+
+    // Elapsed timer
+    const startTime = Date.now()
+    const timerInterval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000)
+      timerEl.textContent = `${elapsed}s`
+    }, 1000)
 
     try {
       const settings = this.plugin.settings
@@ -100,11 +126,16 @@ export class ReorgModal extends Modal {
       let response = ''
       for await (const chunk of stream) {
         response += chunk
+        streamEl.textContent = response
+        streamEl.scrollTop = streamEl.scrollHeight
       }
 
+      clearInterval(timerInterval)
+      this.modalEl.removeClass('pw-reorg-modal-streaming')
       this.moves = this.parseMoves(response, files)
       this.renderMoves()
     } catch (error) {
+      clearInterval(timerInterval)
       if (error instanceof Error && error.name === 'AbortError') return
       new Notice(`Reorganize failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
       this.close()
@@ -250,9 +281,12 @@ export class ReorgModal extends Modal {
           move.checked = checkbox.checked
         })
 
-        const detail = row.createSpan({ cls: 'pw-reorg-row-detail' })
-        detail.createEl('strong', { text: move.file.name })
-        detail.createEl('small', { text: ` ${move.currentFolder || '/'} -> ${move.proposedFolder || '/'}` })
+        const detail = row.createDiv({ cls: 'pw-reorg-row-detail' })
+        detail.createEl('span', { text: move.file.name, cls: 'pw-reorg-filename' })
+        const pathRow = detail.createDiv({ cls: 'pw-reorg-path' })
+        pathRow.createSpan({ text: move.currentFolder || '/', cls: 'pw-reorg-from' })
+        pathRow.createSpan({ text: ' \u2192 ', cls: 'pw-reorg-arrow' })
+        pathRow.createSpan({ text: move.proposedFolder || '/', cls: 'pw-reorg-to' })
       }
     }
 

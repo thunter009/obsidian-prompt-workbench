@@ -1,6 +1,6 @@
 /**
  * Duplicate detection and resolution modal.
- * Scans vault for basename collisions, shows diff, lets user pick which to keep.
+ * Finds duplicates by basename AND by content hash.
  */
 
 import { App, Modal, TFile, Notice, ButtonComponent } from 'obsidian'
@@ -8,17 +8,32 @@ import { EditorView } from '@codemirror/view'
 import { EditorState } from '@codemirror/state'
 import { unifiedMergeView } from '@codemirror/merge'
 import type PromptWorkbenchPlugin from '../main'
+import { parseFrontmatter } from '../frontmatter'
 
 interface DuplicateGroup {
-  basename: string
+  label: string
+  reason: 'name' | 'content'
   files: TFile[]
   identical: boolean
 }
 
-function findDuplicateGroups(app: App): Map<string, TFile[]> {
+/** Simple string hash for content comparison */
+function hashContent(text: string): string {
+  let hash = 0
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) - hash + text.charCodeAt(i)) | 0
+  }
+  return hash.toString(36)
+}
+
+async function findDuplicateGroups(app: App): Promise<DuplicateGroup[]> {
+  const files = app.vault.getMarkdownFiles().filter(f => !f.path.startsWith('_'))
+  const groups: DuplicateGroup[] = []
+  const seenNames = new Set<string>()
+
+  // 1. Name-based duplicates (same basename)
   const byName = new Map<string, TFile[]>()
-  for (const file of app.vault.getMarkdownFiles()) {
-    if (file.path.startsWith('_')) continue
+  for (const file of files) {
     const list = byName.get(file.basename)
     if (list) {
       list.push(file)
@@ -27,11 +42,62 @@ function findDuplicateGroups(app: App): Map<string, TFile[]> {
     }
   }
 
-  // Only keep groups with 2+ files
-  for (const [name, files] of byName) {
-    if (files.length < 2) byName.delete(name)
+  for (const [basename, group] of byName) {
+    if (group.length < 2) continue
+    const contents = await Promise.all(group.map(f => app.vault.cachedRead(f)))
+    const identical = contents.every(c => c === contents[0])
+    groups.push({ label: basename, reason: 'name', files: group, identical })
+    for (const f of group) seenNames.add(f.path)
   }
-  return byName
+
+  // 2. Content-based duplicates (different name, same body text)
+  const byHash = new Map<string, TFile[]>()
+  for (const file of files) {
+    if (seenNames.has(file.path)) continue // already in a name-based group
+    const content = await app.vault.cachedRead(file)
+    const { body } = parseFrontmatter(content)
+    const trimmed = body.trim()
+    if (trimmed.length < 20) continue // skip tiny files
+    const hash = hashContent(trimmed)
+    const list = byHash.get(hash)
+    if (list) {
+      list.push(file)
+    } else {
+      byHash.set(hash, [file])
+    }
+  }
+
+  // Verify hash collisions by comparing actual content
+  for (const [, group] of byHash) {
+    if (group.length < 2) continue
+    const contents = await Promise.all(
+      group.map(async f => {
+        const raw = await app.vault.cachedRead(f)
+        return parseFrontmatter(raw).body.trim()
+      })
+    )
+    // Subgroup by actual content (hash collisions become separate groups)
+    const subgroups = new Map<string, TFile[]>()
+    for (let i = 0; i < group.length; i++) {
+      const existing = [...subgroups.entries()].find(([body]) => body === contents[i])
+      if (existing) {
+        existing[1].push(group[i])
+      } else {
+        subgroups.set(contents[i], [group[i]])
+      }
+    }
+    for (const [, sg] of subgroups) {
+      if (sg.length < 2) continue
+      groups.push({
+        label: sg.map(f => f.basename).join(' / '),
+        reason: 'content',
+        files: sg,
+        identical: true, // content-matched means identical body
+      })
+    }
+  }
+
+  return groups
 }
 
 export class DuplicateModal extends Modal {
@@ -60,20 +126,12 @@ export class DuplicateModal extends Modal {
     this.contentEl.empty()
     this.contentEl.createEl('p', { text: 'Scanning vault...', cls: 'pw-dup-status' })
 
-    const dupeMap = findDuplicateGroups(this.app)
+    this.groups = await findDuplicateGroups(this.app)
 
-    if (dupeMap.size === 0) {
+    if (this.groups.length === 0) {
       this.contentEl.empty()
       this.contentEl.createEl('p', { text: 'No duplicate prompts found.' })
       return
-    }
-
-    // Check if each group has identical content
-    this.groups = []
-    for (const [basename, files] of dupeMap) {
-      const contents = await Promise.all(files.map(f => this.app.vault.cachedRead(f)))
-      const identical = contents.every(c => c === contents[0])
-      this.groups.push({ basename, files, identical })
     }
 
     this.renderList()
@@ -84,17 +142,31 @@ export class DuplicateModal extends Modal {
     this.mergeViewInstance?.destroy()
     this.mergeViewInstance = null
 
+    const nameCount = this.groups.filter(g => g.reason === 'name').length
+    const contentCount = this.groups.filter(g => g.reason === 'content').length
+    const parts: string[] = []
+    if (nameCount > 0) parts.push(`${nameCount} by name`)
+    if (contentCount > 0) parts.push(`${contentCount} by content`)
+
     const summary = this.contentEl.createEl('p', { cls: 'pw-dup-status' })
-    summary.textContent = `${this.groups.length} duplicate${this.groups.length === 1 ? '' : ' sets'} found`
+    summary.textContent = `${this.groups.length} duplicate set${this.groups.length === 1 ? '' : 's'} (${parts.join(', ')})`
+
+    const topControls = this.contentEl.createDiv({ cls: 'pw-actions' })
+    new ButtonComponent(topControls)
+      .setButtonText('Resolve all (keep newest)')
+      .setCta()
+      .onClick(async () => {
+        await this.resolveAll()
+      })
 
     for (const group of this.groups) {
       const groupEl = this.contentEl.createDiv({ cls: 'pw-dup-group' })
 
-      // Header row: name + badge
+      // Header row: label + badges
       const header = groupEl.createDiv({ cls: 'pw-dup-header' })
-      header.createEl('strong', { text: group.basename })
+      header.createEl('strong', { text: group.label })
       header.createSpan({
-        text: group.identical ? 'Identical' : 'Different',
+        text: group.reason === 'content' ? 'Same content' : (group.identical ? 'Identical' : 'Different'),
         cls: group.identical ? 'pw-dup-identical' : 'pw-dup-different',
       })
 
@@ -107,7 +179,6 @@ export class DuplicateModal extends Modal {
         const date = new Date(file.stat.mtime)
         meta.textContent = `${formatSize(file.stat.size)} · ${date.toLocaleDateString()}`
 
-        // Keep button
         new ButtonComponent(row)
           .setButtonText('Keep this')
           .onClick(async () => {
@@ -115,7 +186,7 @@ export class DuplicateModal extends Modal {
           })
       }
 
-      // Compare button (only if different)
+      // Compare button (only if different content)
       if (!group.identical) {
         const controls = groupEl.createDiv({ cls: 'pw-dup-controls' })
         new ButtonComponent(controls)
@@ -130,22 +201,18 @@ export class DuplicateModal extends Modal {
     this.mergeViewInstance?.destroy()
     this.mergeViewInstance = null
 
-    // Header
-    this.contentEl.createEl('h4', { text: group.basename })
+    this.contentEl.createEl('h4', { text: group.label })
 
-    // Labels
     const labels = this.contentEl.createDiv({ cls: 'pw-dup-diff-labels' })
     labels.createSpan({ text: group.files[0].path, cls: 'pw-dup-file-path' })
     labels.createSpan({ text: ' vs ', cls: 'pw-dup-vs' })
     labels.createSpan({ text: group.files[1].path, cls: 'pw-dup-file-path' })
 
-    // Read content
     const [contentA, contentB] = await Promise.all([
       this.app.vault.cachedRead(group.files[0]),
       this.app.vault.cachedRead(group.files[1]),
     ])
 
-    // Diff view
     const diffContainer = this.contentEl.createDiv({ cls: 'pw-diff-container' })
     this.mergeViewInstance = new EditorView({
       parent: diffContainer,
@@ -163,7 +230,6 @@ export class DuplicateModal extends Modal {
       }),
     })
 
-    // Action buttons
     const actions = this.contentEl.createDiv({ cls: 'pw-actions' })
 
     new ButtonComponent(actions)
@@ -184,16 +250,39 @@ export class DuplicateModal extends Modal {
       })
   }
 
+  private async resolveAll() {
+    let totalTrashed = 0
+    let errors = 0
+    for (const group of [...this.groups]) {
+      const keep = group.files.reduce((a, b) => a.stat.mtime > b.stat.mtime ? a : b)
+      const toTrash = group.files.filter(f => f !== keep)
+      for (const file of toTrash) {
+        try {
+          await this.app.vault.trash(file, true)
+          totalTrashed++
+        } catch {
+          errors++
+        }
+      }
+    }
+
+    this.groups = []
+    this.contentEl.empty()
+    let msg = `Done — trashed ${totalTrashed} duplicate${totalTrashed !== 1 ? 's' : ''}, kept newest in each group.`
+    if (errors > 0) msg += ` (${errors} failed)`
+    this.contentEl.createEl('p', { text: msg })
+    new Notice(msg)
+  }
+
   private async resolve(group: DuplicateGroup, keep: TFile) {
     const toTrash = group.files.filter(f => f !== keep)
 
     for (const file of toTrash) {
-      await this.app.vault.trash(file, true) // true = system trash (recoverable)
+      await this.app.vault.trash(file, true)
     }
 
     new Notice(`Kept ${keep.path}, trashed ${toTrash.length} duplicate${toTrash.length > 1 ? 's' : ''}`)
 
-    // Remove resolved group and re-render
     this.groups = this.groups.filter(g => g !== group)
     if (this.groups.length === 0) {
       this.contentEl.empty()

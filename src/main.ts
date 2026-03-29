@@ -1,4 +1,4 @@
-import { Plugin, Notice } from 'obsidian'
+import { Plugin, Notice, Modal, ButtonComponent } from 'obsidian'
 import { createPlaceholderExtension, togglePreviewEffect, previewEnabledField } from './placeholders/cm-extension'
 import { createPlaceholderPostProcessor } from './placeholders/reading-view'
 import { registerSnippetGraphLinks } from './placeholders/graph-links'
@@ -103,6 +103,73 @@ export default class PromptWorkbenchPlugin extends Plugin {
       name: 'Prompt Workbench: Reorganize vault',
       callback: () => {
         new ReorgModal(this.app, this).open()
+      },
+    })
+
+    this.addCommand({
+      id: 'clean-empty-folders',
+      name: 'Clean empty folders',
+      callback: async () => {
+        const vault = this.app.vault
+        const PROTECTED = new Set(['00 Inbox', '_config', '_templates'])
+
+        const allFolders = vault.getAllLoadedFiles()
+          .filter((f): f is import('obsidian').TFolder => 'children' in f && f.path !== '' && f.path !== '/')
+          .sort((a, b) => b.path.length - a.path.length) // deepest first
+
+        // Find empty folders (excluding protected)
+        const toDelete: string[] = []
+        for (const folder of allFolders) {
+          if (PROTECTED.has(folder.name) || PROTECTED.has(folder.path)) continue
+          if (folder.path.startsWith('_')) continue
+          if (folder.path.startsWith('.')) continue
+          if (folder.children.length === 0) {
+            toDelete.push(folder.path)
+          }
+        }
+
+        if (toDelete.length === 0) {
+          new Notice('No empty folders found')
+          return
+        }
+
+        // Confirm before deleting
+        const confirmed = await new Promise<boolean>((resolve) => {
+          const modal = new (class extends Modal {
+            onOpen() {
+              this.setTitle('Clean empty folders')
+              this.contentEl.createEl('p', { text: `Found ${toDelete.length} empty folder${toDelete.length > 1 ? 's' : ''} to remove:` })
+              const list = this.contentEl.createEl('ul')
+              for (const path of toDelete) {
+                list.createEl('li', { text: path })
+              }
+              const actions = this.contentEl.createDiv({ cls: 'pw-actions' })
+              new ButtonComponent(actions)
+                .setButtonText('Cancel')
+                .onClick(() => { resolve(false); this.close() })
+              new ButtonComponent(actions)
+                .setButtonText(`Delete ${toDelete.length} folders`)
+                .setCta()
+                .onClick(() => { resolve(true); this.close() })
+            }
+            onClose() { resolve(false) }
+          })(this.app)
+          modal.open()
+        })
+
+        if (!confirmed) return
+
+        let removed = 0
+        for (const path of toDelete) {
+          const current = vault.getAbstractFileByPath(path)
+          if (!current || !('children' in current)) continue
+          if ((current as import('obsidian').TFolder).children.length === 0) {
+            await vault.delete(current)
+            removed++
+          }
+        }
+
+        new Notice(removed > 0 ? `Removed ${removed} empty folder${removed > 1 ? 's' : ''}` : 'No empty folders removed')
       },
     })
 
