@@ -68,5 +68,24 @@ export class AnthropicAdapter implements LLMAdapter {
         boundary = buffer.indexOf('\n\n')
       }
     }
+
+    // Flush remaining buffer
+    if (buffer.trim()) {
+      let eventType = 'message'
+      for (const rawLine of buffer.split('\n')) {
+        const line = rawLine.trim()
+        if (line.startsWith('event:')) {
+          eventType = line.slice(6).trim()
+        } else if (line.startsWith('data:')) {
+          const payload = line.slice(5).trim()
+          let parsed: AnthropicStreamPayload
+          try { parsed = JSON.parse(payload) } catch { continue }
+          if (parsed.error?.message) throw new Error(parsed.error.message)
+          if (eventType === 'content_block_delta' && parsed.delta?.text) {
+            yield parsed.delta.text
+          }
+        }
+      }
+    }
   }
 }

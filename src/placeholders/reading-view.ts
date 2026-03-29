@@ -52,6 +52,16 @@ function appendHiddenSnippetLinks(el: HTMLElement, app: App, snippetRefs: Set<st
   }
 }
 
+function isInsideCodeBlock(node: Node): boolean {
+  let parent = node.parentElement
+  while (parent) {
+    const tag = parent.tagName
+    if (tag === 'CODE' || tag === 'PRE') return true
+    parent = parent.parentElement
+  }
+  return false
+}
+
 export function createPlaceholderPostProcessor(app: App) {
   return (el: HTMLElement, _ctx: MarkdownPostProcessorContext) => {
   // Walk all text nodes in the rendered element
@@ -61,6 +71,9 @@ export function createPlaceholderPostProcessor(app: App) {
 
   let textNode: Text | null
   while ((textNode = walker.nextNode() as Text | null)) {
+    // Skip text inside code blocks and pre elements
+    if (isInsideCodeBlock(textNode)) continue
+
     const text = textNode.textContent || ''
     const re = new RegExp(PLACEHOLDER_REGEX.source, 'g')
     const matches: { type: string; raw: string; index: number }[] = []

@@ -200,6 +200,9 @@ export function getPlaceholderPreviewValue(parsed: ParsedPlaceholder): string {
       case 'uppercase': value = value.toUpperCase(); break
       case 'lowercase': value = value.toLowerCase(); break
       case 'trim': value = value.trim(); break
+      case 'percent-encode': value = encodeURIComponent(value); break
+      case 'json-stringify': value = JSON.stringify(value); break
+      case 'raw': break
     }
   }
 

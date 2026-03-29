@@ -80,7 +80,11 @@ export function registerSnippetGraphLinks(plugin: Plugin) {
 
   async function refreshAll() {
     const files = app.vault.getMarkdownFiles()
-    await Promise.all(files.map((file) => refreshFile(file)))
+    // Process in chunks to avoid freezing UI on large vaults
+    const CHUNK = 50
+    for (let i = 0; i < files.length; i += CHUNK) {
+      await Promise.all(files.slice(i, i + CHUNK).map((file) => refreshFile(file)))
+    }
   }
 
   function clearDeletedFile(file: TAbstractFile) {
@@ -94,20 +98,35 @@ export function registerSnippetGraphLinks(plugin: Plugin) {
     snippetLinksBySource.delete(file.path)
   }
 
+  // Debounce to prevent rapid-fire refreshes from racing
+  let refreshTimer: ReturnType<typeof setTimeout> | null = null
+  let pendingFiles = new Set<TFile>()
+
+  function scheduleRefresh(file?: TFile) {
+    if (file) pendingFiles.add(file)
+    if (refreshTimer) clearTimeout(refreshTimer)
+    refreshTimer = setTimeout(async () => {
+      refreshTimer = null
+      if (pendingFiles.size > 0) {
+        const files = [...pendingFiles]
+        pendingFiles = new Set()
+        for (const f of files) await refreshFile(f)
+      } else {
+        await refreshAll()
+      }
+    }, 500)
+  }
+
   plugin.registerEvent(app.vault.on('modify', (file) => {
-    if (file instanceof TFile) {
-      void refreshFile(file)
-    }
+    if (file instanceof TFile) scheduleRefresh(file)
   }))
   plugin.registerEvent(app.vault.on('create', (file) => {
-    if (file instanceof TFile) {
-      void refreshFile(file)
-    }
+    if (file instanceof TFile) scheduleRefresh(file)
   }))
-  plugin.registerEvent(app.vault.on('rename', () => { void refreshAll() }))
+  plugin.registerEvent(app.vault.on('rename', () => { scheduleRefresh() }))
   plugin.registerEvent(app.vault.on('delete', clearDeletedFile))
 
-  plugin.registerEvent(app.metadataCache.on('resolved', () => { void refreshAll() }))
+  plugin.registerEvent(app.metadataCache.on('resolved', () => { scheduleRefresh() }))
 
   void refreshAll()
 }

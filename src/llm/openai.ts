@@ -64,5 +64,20 @@ export class OpenAIAdapter implements LLMAdapter {
         boundary = buffer.indexOf('\n\n')
       }
     }
+
+    // Flush remaining buffer
+    if (buffer.trim()) {
+      for (const rawLine of buffer.split('\n')) {
+        const line = rawLine.trim()
+        if (!line || !line.startsWith('data:')) continue
+        const payload = line.slice(5).trim()
+        if (payload === '[DONE]') return
+        let chunk: OpenAIChunk
+        try { chunk = JSON.parse(payload) } catch { continue }
+        if (chunk.error?.message) throw new Error(chunk.error.message)
+        const text = chunk.choices?.[0]?.delta?.content
+        if (text) yield text
+      }
+    }
   }
 }

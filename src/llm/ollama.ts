@@ -55,10 +55,11 @@ export class OllamaAdapter implements LLMAdapter {
     }
 
     buffer += decoder.decode()
-    if (buffer.trim()) {
-      const chunk = parseLine(buffer)
-      if (chunk?.error) throw new Error(chunk.error)
-      if (chunk?.response) yield chunk.response
+    for (const line of buffer.split('\n')) {
+      const chunk = parseLine(line)
+      if (!chunk) continue
+      if (chunk.error) throw new Error(chunk.error)
+      if (chunk.response) yield chunk.response
     }
   }
 }
