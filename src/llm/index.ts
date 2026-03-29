@@ -1,8 +1,9 @@
 import { AnthropicAdapter } from './anthropic'
+import { ClaudeCodeAdapter } from './claude-code'
 import { OllamaAdapter } from './ollama'
 import { OpenAIAdapter } from './openai'
 
-export type LLMProvider = 'ollama' | 'openai' | 'anthropic'
+export type LLMProvider = 'ollama' | 'openai' | 'anthropic' | 'claude-code'
 
 export interface LLMGenerateInput {
   prompt: string
@@ -39,6 +40,10 @@ export function createLLMAdapter(config: LLMAdapterConfig): LLMAdapter {
       baseUrl: config.openaiBaseUrl || 'https://api.openai.com/v1',
       apiKey: config.openaiApiKey,
     })
+  }
+
+  if (config.provider === 'claude-code') {
+    return new ClaudeCodeAdapter()
   }
 
   if (config.provider !== 'anthropic') {

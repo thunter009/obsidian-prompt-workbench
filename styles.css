@@ -488,3 +488,144 @@
   font-size: 11px;
   color: var(--text-faint);
 }
+
+/* ── Auth Status ── */
+
+.pw-auth-status {
+  font-size: 12px;
+  padding: 6px 0;
+  color: var(--text-muted);
+}
+
+.pw-auth-ok {
+  color: var(--interactive-accent);
+}
+
+.pw-auth-warn {
+  color: var(--text-warning, #d97706);
+}
+
+.pw-auth-error {
+  color: var(--text-error, #dc2626);
+}
+
+.pw-auth-muted {
+  color: var(--text-faint);
+}
+
+/* ── Reorg Streaming ── */
+
+.pw-reorg-modal-streaming {
+  width: 700px;
+  max-width: 90vw;
+}
+
+.pw-reorg-modal-streaming .pw-stream-output {
+  max-height: 40vh;
+  overflow: auto;
+}
+
+.pw-reorg-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.pw-reorg-timer {
+  font-family: var(--font-monospace);
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--background-secondary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  min-width: 28px;
+  text-align: center;
+}
+
+.pw-reorg-status-text {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ── Reorg Modal ── */
+
+.pw-reorg-modal {
+  width: 600px;
+  max-width: 90vw;
+}
+
+.pw-reorg-modal .modal-content {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* ── Reorg Review ── */
+
+.pw-reorg-group {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.pw-reorg-group:last-of-type {
+  border-bottom: none;
+}
+
+.pw-reorg-group h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--text-normal);
+}
+
+.pw-reorg-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.pw-reorg-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.pw-reorg-row input[type="checkbox"] {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.pw-reorg-row-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pw-reorg-filename {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--text-normal);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pw-reorg-path {
+  font-size: 11px;
+  font-family: var(--font-monospace);
+  color: var(--text-faint);
+}
+
+.pw-reorg-from {
+  color: var(--text-faint);
+}
+
+.pw-reorg-arrow {
+  color: var(--text-muted);
+}
+
+.pw-reorg-to {
+  color: var(--interactive-accent);
+}

@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian'
 import type PromptWorkbenchPlugin from './main'
 import type { LLMProvider } from './llm/index'
+import { checkClaudeCodeAuth } from './llm/claude-code'
 
 export interface PromptWorkbenchSettings {
   showInlinePreviews: boolean
@@ -31,6 +32,11 @@ export const DEFAULT_SETTINGS: PromptWorkbenchSettings = {
   metaSystemPrompt: '',
   includeWorkflowHeader: false,
   autoSyncRaycast: false,
+}
+
+function isClaudeCompatibleModel(model: string): boolean {
+  const m = model.toLowerCase()
+  return m === 'haiku' || m === 'sonnet' || m === 'opus' || m.startsWith('claude-')
 }
 
 export class PromptWorkbenchSettingTab extends PluginSettingTab {
@@ -102,24 +108,34 @@ export class PromptWorkbenchSettingTab extends PluginSettingTab {
         .addOption('ollama', 'Ollama (local)')
         .addOption('openai', 'OpenAI / compatible')
         .addOption('anthropic', 'Anthropic')
+        .addOption('claude-code', 'Claude Code (subscription)')
         .setValue(this.plugin.settings.llmProvider)
         .onChange(async (value) => {
           this.plugin.settings.llmProvider = value as LLMProvider
+
+          // Auto-set model when switching to claude-code if current model is incompatible
+          if (value === 'claude-code' && !isClaudeCompatibleModel(this.plugin.settings.llmModel)) {
+            this.plugin.settings.llmModel = 'sonnet'
+          }
+
           await this.plugin.saveSettings()
-          this.display() // re-render to show relevant fields
+          this.display()
         }))
+
+    const provider = this.plugin.settings.llmProvider
 
     new Setting(containerEl)
       .setName('Model')
-      .setDesc('Model name (e.g. llama3.2, gpt-4o, claude-sonnet-4-20250514)')
+      .setDesc(provider === 'claude-code'
+        ? 'Model alias (sonnet, opus, haiku) or full ID'
+        : 'Model name (e.g. llama3.2, gpt-4o, claude-sonnet-4-20250514)')
       .addText(text => text
+        .setPlaceholder(provider === 'claude-code' ? 'sonnet' : '')
         .setValue(this.plugin.settings.llmModel)
         .onChange(async (value) => {
           this.plugin.settings.llmModel = value
           await this.plugin.saveSettings()
         }))
-
-    const provider = this.plugin.settings.llmProvider
 
     if (provider === 'ollama') {
       new Setting(containerEl)
@@ -182,6 +198,35 @@ export class PromptWorkbenchSettingTab extends PluginSettingTab {
             this.plugin.settings.anthropicBaseUrl = value
             await this.plugin.saveSettings()
           }))
+    }
+
+    if (provider === 'claude-code') {
+      const authEl = containerEl.createDiv({ cls: 'pw-auth-status' })
+      authEl.textContent = 'Checking auth...'
+      const authCheckId = Symbol()
+      ;(this as unknown as { _authCheckId: symbol })._authCheckId = authCheckId
+      checkClaudeCodeAuth().then((result) => {
+        // Ignore stale result if provider changed during check
+        if ((this as unknown as { _authCheckId: symbol })._authCheckId !== authCheckId) return
+        switch (result.status) {
+          case 'authenticated':
+            authEl.textContent = `Signed in as ${result.email}${result.plan ? ` (${result.plan})` : ''}`
+            authEl.className = 'pw-auth-status pw-auth-ok'
+            break
+          case 'not-authenticated':
+            authEl.textContent = "Not signed in \u2014 run 'claude auth login' in terminal"
+            authEl.className = 'pw-auth-status pw-auth-warn'
+            break
+          case 'not-installed':
+            authEl.textContent = 'Claude Code not found \u2014 install from claude.com/code'
+            authEl.className = 'pw-auth-status pw-auth-error'
+            break
+          case 'error':
+            authEl.textContent = `Could not check auth: ${result.message}`
+            authEl.className = 'pw-auth-status pw-auth-muted'
+            break
+        }
+      })
     }
 
     // ── Meta System Prompt ──
