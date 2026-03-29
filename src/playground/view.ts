@@ -197,7 +197,7 @@ export class PlaygroundView extends ItemView {
           this.app.vault.cachedRead(file).then(content => {
             const { body } = parseFrontmatter(content)
             this.renderPreview(body)
-          })
+          }).catch(() => {})
         }
       })
     }

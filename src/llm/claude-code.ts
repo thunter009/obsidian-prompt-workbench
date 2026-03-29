@@ -131,6 +131,10 @@ export class ClaudeCodeAdapter implements LLMAdapter {
       stdio: ['pipe', 'pipe', 'pipe'],
     })
 
+    // Handle spawn errors (EACCES, out of PIDs, etc.) — unhandled 'error' events are fatal
+    let spawnError: Error | null = null
+    child.on('error', (err) => { spawnError = err })
+
     // Wire abort signal to kill child
     const onAbort = () => child.kill('SIGTERM')
     input.signal?.addEventListener('abort', onAbort)
@@ -141,7 +145,8 @@ export class ClaudeCodeAdapter implements LLMAdapter {
 
     const decoder = new TextDecoder('utf-8')
 
-    // Write prompt to stdin then close
+    // Write prompt to stdin then close — swallow errors on destroyed stream
+    child.stdin.on('error', () => {})
     child.stdin.write(input.prompt)
     child.stdin.end()
 
@@ -165,6 +170,12 @@ export class ClaudeCodeAdapter implements LLMAdapter {
         child.on('close', (code) => resolve(code))
       }
     })
+
+    // Surface spawn errors (EACCES, EPERM, etc.)
+    if (spawnError) {
+      if (input.signal?.aborted) return
+      throw new Error(`Claude Code failed to start: ${spawnError.message}`)
+    }
 
     if (exitCode !== null && exitCode !== 0) {
       // Signal-killed (abort) — don't throw
