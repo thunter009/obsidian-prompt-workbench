@@ -2,7 +2,7 @@ import { App, ButtonComponent, Modal, Notice, TFile } from 'obsidian'
 import type PromptWorkbenchPlugin from '../main'
 import { createLLMAdapter } from '../llm'
 
-interface VaultFileSummary {
+export interface VaultFileSummary {
   file: TFile
   path: string
   name: string
@@ -10,7 +10,7 @@ interface VaultFileSummary {
   excerpt: string
 }
 
-interface ProposedMove {
+export interface ProposedMove {
   file: TFile
   filePath: string
   currentFolder: string
@@ -37,6 +37,77 @@ Rules:
 - Skip files that should remain where they are.
 - If unsure, skip the file.
 `
+
+export function extractJson(rawText: string): string {
+  const fenceMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  return (fenceMatch?.[1] ?? rawText).trim()
+}
+
+export function normalizeFolder(folder: string): string {
+  return folder.trim().replace(/^\/+|\/+$/g, '')
+}
+
+export function isExcludedPath(path: string): boolean {
+  if (path.startsWith('_templates/') || path.startsWith('_config/')) {
+    return true
+  }
+  const topSegment = path.split('/')[0] ?? ''
+  return topSegment.startsWith('_')
+}
+
+export function buildPrompt(files: VaultFileSummary[]): string {
+  const payload = files.map((file) => ({
+    file: file.path,
+    currentFolder: file.currentFolder,
+    contentExcerpt: file.excerpt,
+  }))
+
+  return `Analyze these markdown files and propose folder moves grouped by theme.\n\n${JSON.stringify(payload)}`
+}
+
+export function parseMoves(rawText: string, files: VaultFileSummary[]): ProposedMove[] {
+  const filesByPath = new Map(files.map((file) => [file.path, file]))
+  const jsonCandidate = extractJson(rawText)
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(jsonCandidate)
+  } catch {
+    return []
+  }
+  const rawMoves = Array.isArray(parsed)
+    ? parsed
+    : (typeof parsed === 'object' && parsed && Array.isArray((parsed as { moves?: unknown }).moves)
+        ? (parsed as { moves: unknown[] }).moves
+        : [])
+
+  const moves: ProposedMove[] = []
+  for (const rawMove of rawMoves as RawMove[]) {
+    if (typeof rawMove.file !== 'string' || typeof rawMove.proposedFolder !== 'string') {
+      continue
+    }
+    const fileSummary = filesByPath.get(rawMove.file)
+    if (!fileSummary) continue
+
+    const proposedFolder = normalizeFolder(rawMove.proposedFolder)
+    if (proposedFolder.startsWith('_')) continue
+    if (proposedFolder === fileSummary.currentFolder) continue
+
+    moves.push({
+      file: fileSummary.file,
+      filePath: fileSummary.path,
+      currentFolder: fileSummary.currentFolder,
+      proposedFolder,
+      checked: true,
+    })
+  }
+
+  return moves.sort((a, b) => {
+    if (a.proposedFolder === b.proposedFolder) {
+      return a.filePath.localeCompare(b.filePath)
+    }
+    return a.proposedFolder.localeCompare(b.proposedFolder)
+  })
+}
 
 export class ReorgModal extends Modal {
   private plugin: PromptWorkbenchPlugin
@@ -117,7 +188,7 @@ export class ReorgModal extends Modal {
       })
 
       const stream = adapter.generate({
-        prompt: this.buildPrompt(files),
+        prompt: buildPrompt(files),
         systemPrompt: REORG_SYSTEM_PROMPT,
         model: settings.llmModel,
         signal: this.abortController.signal,
@@ -132,7 +203,7 @@ export class ReorgModal extends Modal {
 
       clearInterval(timerInterval)
       this.modalEl.removeClass('pw-reorg-modal-streaming')
-      this.moves = this.parseMoves(response, files)
+      this.moves = parseMoves(response, files)
       this.renderMoves()
     } catch (error) {
       clearInterval(timerInterval)
@@ -143,7 +214,7 @@ export class ReorgModal extends Modal {
   }
 
   private async collectFiles(): Promise<VaultFileSummary[]> {
-    const candidates = this.app.vault.getMarkdownFiles().filter((file) => !this.isExcludedPath(file.path))
+    const candidates = this.app.vault.getMarkdownFiles().filter((file) => !isExcludedPath(file.path))
 
     const summaries = await Promise.all(candidates.map(async (file) => {
       const content = await this.app.vault.cachedRead(file)
@@ -159,71 +230,7 @@ export class ReorgModal extends Modal {
     return summaries
   }
 
-  private isExcludedPath(path: string): boolean {
-    if (path.startsWith('_templates/') || path.startsWith('_config/')) {
-      return true
-    }
-    const topSegment = path.split('/')[0] ?? ''
-    return topSegment.startsWith('_')
-  }
-
-  private buildPrompt(files: VaultFileSummary[]): string {
-    const payload = files.map((file) => ({
-      file: file.path,
-      currentFolder: file.currentFolder,
-      contentExcerpt: file.excerpt,
-    }))
-
-    return `Analyze these markdown files and propose folder moves grouped by theme.\n\n${JSON.stringify(payload)}`
-  }
-
-  private parseMoves(rawText: string, files: VaultFileSummary[]): ProposedMove[] {
-    const filesByPath = new Map(files.map((file) => [file.path, file]))
-    const jsonCandidate = this.extractJson(rawText)
-    const parsed: unknown = JSON.parse(jsonCandidate)
-    const rawMoves = Array.isArray(parsed)
-      ? parsed
-      : (typeof parsed === 'object' && parsed && Array.isArray((parsed as { moves?: unknown }).moves)
-          ? (parsed as { moves: unknown[] }).moves
-          : [])
-
-    const moves: ProposedMove[] = []
-    for (const rawMove of rawMoves as RawMove[]) {
-      if (typeof rawMove.file !== 'string' || typeof rawMove.proposedFolder !== 'string') {
-        continue
-      }
-      const fileSummary = filesByPath.get(rawMove.file)
-      if (!fileSummary) continue
-
-      const proposedFolder = this.normalizeFolder(rawMove.proposedFolder)
-      if (proposedFolder.startsWith('_')) continue
-      if (proposedFolder === fileSummary.currentFolder) continue
-
-      moves.push({
-        file: fileSummary.file,
-        filePath: fileSummary.path,
-        currentFolder: fileSummary.currentFolder,
-        proposedFolder,
-        checked: true,
-      })
-    }
-
-    return moves.sort((a, b) => {
-      if (a.proposedFolder === b.proposedFolder) {
-        return a.filePath.localeCompare(b.filePath)
-      }
-      return a.proposedFolder.localeCompare(b.proposedFolder)
-    })
-  }
-
-  private extractJson(rawText: string): string {
-    const fenceMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/i)
-    return (fenceMatch?.[1] ?? rawText).trim()
-  }
-
-  private normalizeFolder(folder: string): string {
-    return folder.trim().replace(/^\/+|\/+$/g, '')
-  }
+  // Delegate to standalone functions for testability
 
   private renderEmpty(message: string) {
     this.contentEl.empty()

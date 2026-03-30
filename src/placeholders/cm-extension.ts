@@ -40,7 +40,7 @@ function markForType(type: string): Decoration {
   return markCache[type]
 }
 
-function placeholderCategory(name: string): string {
+export function placeholderCategory(name: string): string {
   switch (name) {
     case 'clipboard': return 'clipboard'
     case 'argument': return 'argument'
@@ -56,7 +56,7 @@ const placeholderMatcher = new MatchDecorator({
   decoration: (m) => markForType(placeholderCategory(m[1])),
 })
 
-const raycastPlaceholderPlugin = ViewPlugin.fromClass(
+export const raycastPlaceholderPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet
     constructor(view: EditorView) {
@@ -100,7 +100,7 @@ export const previewEnabledField = StateField.define<boolean>({
   },
 })
 
-function buildPreviewDecorations(view: EditorView): DecorationSet {
+export function buildPreviewDecorations(view: EditorView): DecorationSet {
   const enabled = view.state.field(previewEnabledField)
   if (!enabled) return Decoration.none
 
@@ -125,7 +125,7 @@ function buildPreviewDecorations(view: EditorView): DecorationSet {
   return builder.finish()
 }
 
-const previewWidgetPlugin = ViewPlugin.fromClass(
+export const previewWidgetPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet
     constructor(view: EditorView) {
@@ -156,14 +156,14 @@ const VALID_TYPES = new Set([
 
 const PLACEHOLDER_PREFIXES = ['clip', 'cur', 'dat', 'tim', 'day', 'uui', 'sel', 'arg', 'sni']
 
-function looksLikePlaceholderAttempt(word: string): boolean {
+export function looksLikePlaceholderAttempt(word: string): boolean {
   if (isValidPlaceholderType(word)) return false
   return PLACEHOLDER_PREFIXES.some((p) => word.startsWith(p))
 }
 
 const errorMark = Decoration.mark({ class: 'cm-placeholder-error' })
 
-function buildErrorDecorations(view: EditorView): DecorationSet {
+export function buildErrorDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>()
   const doc = view.state.doc
 
@@ -196,7 +196,7 @@ function buildErrorDecorations(view: EditorView): DecorationSet {
   return builder.finish()
 }
 
-const errorDecorationPlugin = ViewPlugin.fromClass(
+export const errorDecorationPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet
     constructor(view: EditorView) {

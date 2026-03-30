@@ -28,7 +28,7 @@ async function computeSnippetLinks(app: App, file: TFile): Promise<Record<string
   return links
 }
 
-function removePreviousSnippetLinks(
+export function removePreviousSnippetLinks(
   resolvedLinks: ResolvedLinksMap,
   sourcePath: string,
   previous: Record<string, number>,
@@ -47,7 +47,7 @@ function removePreviousSnippetLinks(
   }
 }
 
-function applySnippetLinks(
+export function applySnippetLinks(
   resolvedLinks: ResolvedLinksMap,
   sourcePath: string,
   links: Record<string, number>,

@@ -13,13 +13,13 @@ interface PlaceholderField {
   key: string   // unique key for deduplication
 }
 
-function getFieldName(p: ParsedPlaceholder): string {
+export function getFieldName(p: ParsedPlaceholder): string {
   if (p.argumentName) return p.argumentName
   if (p.snippetRef) return `snippet: ${p.snippetRef}`
   return p.type
 }
 
-function getFieldKey(p: ParsedPlaceholder): string {
+export function getFieldKey(p: ParsedPlaceholder): string {
   if (p.argumentName) return `argument:${p.argumentName}`
   if (p.snippetRef) return `snippet:${p.snippetRef}`
   return `type:${p.type}`
