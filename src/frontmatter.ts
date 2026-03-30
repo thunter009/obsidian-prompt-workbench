@@ -5,7 +5,7 @@
  */
 
 export function parseFrontmatter(content: string): { frontmatter: Record<string, unknown>; body: string } {
-  const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
+  const match = content.match(/^---\n([\s\S]*?)\n?---\n([\s\S]*)$/)
   if (!match) return { frontmatter: {}, body: content }
 
   const frontmatter: Record<string, unknown> = {}
