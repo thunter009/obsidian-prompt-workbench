@@ -7,7 +7,7 @@
 import { App, TFile, Notice, normalizePath } from 'obsidian'
 import type PromptWorkbenchPlugin from '../main'
 import { parseFrontmatter } from '../frontmatter'
-import { extractWorkflowMetadata, formatWorkflowHeader, WORKFLOW_HEADER_START, WORKFLOW_HEADER_END, type WorkflowMetadata } from '../workflow'
+import { extractWorkflowMetadata, formatWorkflowHeader, resolveSnippets, WORKFLOW_HEADER_START, WORKFLOW_HEADER_END, type WorkflowMetadata } from '../workflow'
 
 export interface RaycastSnippet {
   name: string
@@ -15,7 +15,7 @@ export interface RaycastSnippet {
   keyword?: string
 }
 
-interface VaultSnippet {
+export interface VaultSnippet {
   name: string
   text: string
   keyword?: string
@@ -24,10 +24,16 @@ interface VaultSnippet {
   workflow?: WorkflowMetadata
 }
 
+interface ResolutionWarning {
+  path: string
+  errors: string[]
+}
+
 /** Read all vault markdown files as snippets */
-async function readVaultSnippets(app: App): Promise<VaultSnippet[]> {
+async function readVaultSnippets(app: App): Promise<{ snippets: VaultSnippet[]; resolutionWarnings: ResolutionWarning[] }> {
   const files = app.vault.getMarkdownFiles()
   const snippets: VaultSnippet[] = []
+  const resolutionWarnings: ResolutionWarning[] = []
 
   for (const file of files) {
     // Skip files in _config or other underscore-prefixed folders
@@ -39,9 +45,15 @@ async function readVaultSnippets(app: App): Promise<VaultSnippet[]> {
     // Skip files explicitly marked as non-exportable
     if (frontmatter['raycast-export'] === 'false' || frontmatter['raycast-export'] === false) continue
 
+    // Resolve {snippet name="X"} references inline
+    const { resolved, errors } = await resolveSnippets(app, body)
+    if (errors.length > 0) {
+      resolutionWarnings.push({ path: file.path, errors })
+    }
+
     snippets.push({
       name: file.basename,
-      text: body,
+      text: resolved,
       keyword: typeof frontmatter.keyword === 'string' ? frontmatter.keyword : undefined,
       tags: Array.isArray(frontmatter.tags) ? frontmatter.tags as string[] : undefined,
       path: file.path,
@@ -49,7 +61,7 @@ async function readVaultSnippets(app: App): Promise<VaultSnippet[]> {
     })
   }
 
-  return snippets
+  return { snippets, resolutionWarnings }
 }
 
 /** Build snippet text, optionally prepending workflow header */
@@ -61,7 +73,7 @@ function buildSnippetText(s: VaultSnippet, includeWorkflow: boolean): string {
 }
 
 /** Merge vault snippets into existing Raycast JSON, preserving non-vault snippets */
-function mergeSnippets(existing: RaycastSnippet[], vault: VaultSnippet[], includeWorkflow: boolean): { merged: RaycastSnippet[]; vaultDupes: string[] } {
+export function mergeSnippets(existing: RaycastSnippet[], vault: VaultSnippet[], includeWorkflow: boolean): { merged: RaycastSnippet[]; vaultDupes: string[] } {
   // Detect vault-side duplicates (same basename in different folders)
   const vaultByName = new Map<string, VaultSnippet>()
   const vaultDupes: string[] = []
@@ -109,7 +121,7 @@ function mergeSnippets(existing: RaycastSnippet[], vault: VaultSnippet[], includ
 }
 
 /** Read existing Raycast JSON file, returning empty array if not found */
-async function readExistingRaycastJson(path: string): Promise<RaycastSnippet[]> {
+export async function readExistingRaycastJson(path: string): Promise<RaycastSnippet[]> {
   try {
     const fs = require('fs')
     const content = fs.readFileSync(path, 'utf-8')
@@ -120,7 +132,7 @@ async function readExistingRaycastJson(path: string): Promise<RaycastSnippet[]> 
 }
 
 /** Write backup of existing file */
-function writeBackup(path: string): string | null {
+export function writeBackup(path: string): string | null {
   try {
     const fs = require('fs')
     if (!fs.existsSync(path)) return null
@@ -148,7 +160,7 @@ export async function exportToRaycast(plugin: PromptWorkbenchPlugin, options?: {
 
   try {
     // 1. Read vault snippets
-    const vaultSnippets = await readVaultSnippets(plugin.app)
+    const { snippets: vaultSnippets, resolutionWarnings } = await readVaultSnippets(plugin.app)
     if (vaultSnippets.length === 0) {
       if (!silent) new Notice('No snippets found in vault to export')
       return
@@ -189,9 +201,21 @@ export async function exportToRaycast(plugin: PromptWorkbenchPlugin, options?: {
       if (vaultDupes.length > 0) {
         report += `\n⚠ ${vaultDupes.length} duplicate names in vault: ${vaultDupes.join(', ')}`
       }
+      if (resolutionWarnings.length > 0) {
+        report += `\n⚠ ${resolutionWarnings.length} snippet resolution warning(s); unresolved placeholders were kept literal`
+        const preview = resolutionWarnings
+          .flatMap((warning) => warning.errors.map((error) => `${warning.path}: ${error}`))
+          .slice(0, 3)
+        if (preview.length > 0) {
+          report += `\n${preview.join('\n')}`
+        }
+      }
       new Notice(report)
     } else {
       console.log(`Prompt Workbench: auto-synced ${merged.length} snippets (${added} new, ${updated} updated)`)
+      if (resolutionWarnings.length > 0) {
+        console.warn(`Prompt Workbench: ${resolutionWarnings.length} snippet resolution warning(s) during auto-sync`, resolutionWarnings)
+      }
     }
   } catch (err) {
     if (!silent) {
